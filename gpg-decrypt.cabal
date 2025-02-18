@@ -1,0 +1,97 @@
+cabal-version:   3.6
+
+-- The name of the package.
+name:            gpg-decrypt
+version:         0.1.0.0
+synopsis:        GPG Decryption
+
+-- A longer description of the package.
+description:
+  GPG Decryption lambda
+
+homepage:
+  https://github.com/chris-ch/aws-lambda-gpg-decrypt
+
+license:         MIT
+license-file:    LICENSE
+author:          Christophe
+maintainer:      christophe.alexandre@pm.me
+
+-- copyright:
+category:        AWS
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
+
+common sharedconfig
+  build-depends:
+    base         >=4.7
+    , bindings-gpgme
+    , aeson
+    , fast-logger
+    , email-validate
+    , data-default
+    , filepath
+    , transformers
+    , time
+    , bytestring
+    , hal
+    , text
+    , temporary
+    , directory
+    , optparse-applicative
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-patterns
+    -Wincomplete-record-updates -Wincomplete-uni-patterns
+    -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields
+    -Wredundant-constraints -O2 -threaded -haddock
+
+  default-language: GHC2021
+  default-extensions:
+    DataKinds
+    DeriveGeneric
+    FlexibleContexts
+    GADTs
+    InstanceSigs
+    OverloadedLabels
+    OverloadedStrings
+
+library
+  import:           sharedconfig
+  exposed-modules:     GPGme,
+    GPGDecryption,
+    GPGme.Types,
+    GPGme.Key,
+    GPGme.Key.Gen,
+    GPGme.Internal,
+    GPGme.Ctx,
+    GPGme.Crypto
+  hs-source-dirs:   src
+  default-language: GHC2021
+
+executable gpg-decrypt-app
+  import:           sharedconfig
+  main-is:          Main.hs
+  hs-source-dirs:   .
+  default-language: GHC2021
+  build-depends:
+    , gpg-decrypt
+    , wai-handler-hal  >=0.4.0 && <0.5
+
+executable gpg-decrypt-local
+  import:           sharedconfig
+  main-is:          Local.hs
+  hs-source-dirs:   .
+  default-language: GHC2021
+  build-depends:    gpg-decrypt
+
+test-suite gpg-decrypt-test
+  import:           sharedconfig
+  default-language: GHC2021
+  type:             exitcode-stdio-1.0
+  main-is:          Spec.hs
+  other-modules:    GPGDecryptSpec
+  hs-source-dirs:   test
+  build-depends:    hspec,
+                    gpg-decrypt
+
