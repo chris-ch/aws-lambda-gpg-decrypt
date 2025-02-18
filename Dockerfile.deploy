@@ -1,0 +1,14 @@
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+# Set the working directory in the container
+WORKDIR /var/task
+
+# Copy the compiled Haskell executable (bootstrap) and required shared library
+COPY bootstrap /var/task/bootstrap
+
+# Ensure bootstrap is executable
+RUN chmod +x /var/task/bootstrap
+
+# Set entrypoint for Lambda
+ENTRYPOINT ["/var/task/bootstrap"]
+CMD []
