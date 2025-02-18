@@ -27,6 +27,8 @@ common sharedconfig
     base         >=4.7
     , bindings-gpgme
     , aeson
+    , amazonka
+    , amazonka-s3
     , fast-logger
     , email-validate
     , data-default
@@ -39,6 +41,10 @@ common sharedconfig
     , temporary
     , directory
     , optparse-applicative
+    , generic-lens
+    , conduit-extra
+    , resourcet
+    , lens
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-patterns
@@ -62,10 +68,11 @@ library
     GPGDecryption,
     GPGme.Types,
     GPGme.Key,
-    GPGme.Key.Gen,
     GPGme.Internal,
     GPGme.Ctx,
-    GPGme.Crypto
+    GPGme.Crypto,
+    Helper,
+    AWSEvent
   hs-source-dirs:   src
   default-language: GHC2021
 

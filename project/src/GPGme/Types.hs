@@ -1,11 +1,11 @@
-module GPGme.Types where
+module GPGme.Types ( toDecryptError, Ctx(Ctx, _ctx), DecryptError, Encrypted, Plain,
+      Protocol(..),  GpgmeError(..),
+      HgpgmeException(HgpgmeException),
+        ) where
 
 import Bindings.Gpgme
 import qualified Data.ByteString as BS
-import Data.Maybe (mapMaybe)
 import Foreign
-import qualified Foreign.Concurrent as FC
-import Foreign.C.String (peekCString)
 import System.IO.Unsafe (unsafePerformIO)
 import Control.Exception (SomeException, Exception)
 
@@ -26,28 +26,14 @@ data Ctx = Ctx {
     , _engineVersion   :: String            -- ^ engine version
 }
 
--- | Modes for key listings
-data KeyListingMode
-    = KeyListingLocal
-    | KeyListingExtern
-    | KeyListingSigs
-    | KeyListingSigNotations
-    | KeyListingValidate
-
 -- | Modes for signing with GPG
 data SignMode = Normal | Detach | Clear deriving Show
-
--- | a fingerprint
-type Fpr = BS.ByteString
 
 -- | a plaintext
 type Plain = BS.ByteString
 
 -- | an ciphertext
 type Encrypted = BS.ByteString
-
--- | a signature
-type Signature = BS.ByteString
 
 -- | the summary of a signature status
 data SignatureSummary =
@@ -64,44 +50,6 @@ data SignatureSummary =
     | UnknownSummary C'gpgme_sigsum_t  -- ^ The summary is something else
     | Valid                            -- ^ The signature is fully valid
     deriving (Show, Eq, Ord)
-
--- | Translate the gpgme_sigsum_t bit vector to a list of SignatureSummary
-toSignatureSummaries :: C'gpgme_sigsum_t -> [SignatureSummary]
-toSignatureSummaries x = mapMaybe (\(mask, val) -> if mask .&. x == 0 then Nothing else Just val)
-    [ (c'GPGME_SIGSUM_BAD_POLICY , BadPolicy)
-    , (c'GPGME_SIGSUM_CRL_MISSING, CrlMissing)
-    , (c'GPGME_SIGSUM_CRL_TOO_OLD, CrlTooOld)
-    , (c'GPGME_SIGSUM_GREEN      , Green)
-    , (c'GPGME_SIGSUM_KEY_EXPIRED, KeyExpired)
-    , (c'GPGME_SIGSUM_KEY_MISSING, KeyMissing)
-    , (c'GPGME_SIGSUM_KEY_REVOKED, KeyRevoked)
-    , (c'GPGME_SIGSUM_RED        , Red)
-    , (c'GPGME_SIGSUM_SIG_EXPIRED, SigExpired)
-    , (c'GPGME_SIGSUM_SYS_ERROR  , SysError)
-    , (c'GPGME_SIGSUM_VALID      , Valid)
-    ]
-
-type VerificationResult = [(GpgmeError, [SignatureSummary], Fpr)]
-
--- | The fingerprint and an error code
-type InvalidKey = (String, Int)
--- TODO map intot better error code
-
--- | A key from the context
-newtype Key = Key { unKey :: ForeignPtr C'gpgme_key_t }
-
--- | Allocate a key
-allocKey :: IO Key
-allocKey = do
-    keyPtr <- malloc
-    let finalize = do
-            peek keyPtr >>= c'gpgme_key_unref
-            free keyPtr
-    Key `fmap` FC.newForeignPtr keyPtr finalize
-
--- | Perform an action with the pointer to a 'Key'
-withKeyPtr :: Key -> (Ptr C'gpgme_key_t -> IO a) -> IO a
-withKeyPtr (Key fPtr) = withForeignPtr fPtr
 
 -- | Whether to include secret keys when searching
 data IncludeSecret =
@@ -120,16 +68,6 @@ data Flag =
 -- and a source indicating from which subsystem the error originated.
 newtype GpgmeError = GpgmeError C'gpgme_error_t
                    deriving (Show, Ord, Eq)
-
--- | An explanatory string for a GPGME error.
-errorString :: GpgmeError -> String
-errorString (GpgmeError n) =
-    unsafePerformIO $ c'gpgme_strerror n >>= peekCString
-
--- | An explanatory string describing the source of a GPGME error
-sourceString :: GpgmeError -> String
-sourceString (GpgmeError n) =
-    unsafePerformIO $ c'gpgme_strsource n >>= peekCString
 
 -- | error indicating what went wrong in decryption
 data DecryptError =
@@ -176,4 +114,3 @@ data RemoveKeyFlags = RemoveKeyFlags {
       allowSecret :: Bool -- ^ if False, only public keys are removed, otherwise secret keys are removed as well
     , force       :: Bool -- ^ if True, don't ask for confirmation
     } deriving (Show, Eq, Ord)
-

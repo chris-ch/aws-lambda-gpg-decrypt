@@ -1,24 +1,27 @@
-module GPGme.Ctx where
+module GPGme.Ctx ( withCtx, setPassphraseCallback ) where
 
 import Bindings.Gpgme
 import Control.Monad (when)
 import Control.Exception (SomeException(SomeException), catch, throwIO, toException)
-import Data.List (isPrefixOf)
 import Data.Maybe (fromMaybe)
 import Foreign
 import Foreign.C.String
 import Foreign.C.Types
 
 import GPGme.Types
+    ( HgpgmeException(HgpgmeException),
+      Ctx(Ctx, _ctx),
+      Protocol )
 import GPGme.Internal
+    ( checkError, fromProtocol )
 
--- | Creates a new 'Ctx' from a @homedirectory@, a @locale@
+-- | Creates a new 'GPGme.Types.GPGme.Types.Ctx' from a @homedirectory@, a @locale@
 --   and a @protocol@. Needs to be freed with 'freeCtx', which
 --   is why you are encouraged to use 'withCtx'.
 newCtx :: String   -- ^ path to gpg homedirectory
        -> String   -- ^ locale
-       -> Protocol -- ^ protocol
-       -> IO Ctx
+       -> GPGme.Types.Protocol -- ^ protocol
+       -> IO GPGme.Types.Ctx
 newCtx homedir localeStr protocol =
     do homedirPtr <- newCString homedir
 
@@ -47,24 +50,24 @@ newCtx homedir localeStr protocol =
        checkError "set_engine_info" =<< c'gpgme_ctx_set_engine_info ctx
                             (fromProtocol protocol) nullPtr homedirPtr
 
-       return (Ctx ctxPtr version protocol engVersion)
+       return (GPGme.Types.Ctx ctxPtr version protocol engVersion)
     where lcCtype :: CInt
           lcCtype = 0
 
--- | Free a previously created 'Ctx'
-freeCtx :: Ctx -> IO ()
-freeCtx Ctx {_ctx=ctxPtr} =
+-- | Free a previously created 'GPGme.Types.GPGme.Types.Ctx'
+freeCtx :: GPGme.Types.Ctx -> IO ()
+freeCtx GPGme.Types.Ctx {_ctx=ctxPtr} =
     do ctx <- peek ctxPtr
        c'gpgme_release ctx
        free ctxPtr
 
--- | Runs the action with a new 'Ctx' and frees it afterwards
+-- | Runs the action with a new 'GPGme.Types.GPGme.Types.Ctx' and frees it afterwards
 --
 --   See 'newCtx' for a descrption of the parameters.
 withCtx :: String        -- ^ path to gpg homedirectory
         -> String        -- ^ locale
-        -> Protocol      -- ^ protocol
-        -> (Ctx -> IO a) -- ^ action to be run with ctx
+        -> GPGme.Types.Protocol      -- ^ protocol
+        -> (GPGme.Types.Ctx -> IO a) -- ^ action to be run with ctx
         -> IO a
 withCtx homedir localeStr prot f = do
     ctx <- newCtx homedir localeStr prot
@@ -79,36 +82,8 @@ withCtx homedir localeStr prot f = do
       -- the exception was caught and accounted for.
       ( \(SomeException e) -> do
         freeCtx ctx
-        throwIO $ HgpgmeException (toException e)
+        throwIO $ GPGme.Types.HgpgmeException (toException e)
       )
-
--- | Sets armor output on ctx
-setArmor :: Bool -> Ctx -> IO ()
-setArmor armored Ctx {_ctx = ctxPtr} = do
-    ctx <- peek ctxPtr
-    c'gpgme_set_armor ctx (if armored then 1 else 0)
-
--- | Sets the key listing mode on ctx
-setKeyListingMode :: [KeyListingMode] -> Ctx -> IO ()
-setKeyListingMode modes Ctx {_ctx = ctxPtr} = do
-    let m = foldl (\memo -> (memo .|.) . fromKeyListingMode) 0 modes
-    ctx <- peek ctxPtr
-    checkError "set_keylist_mode" =<< c'gpgme_set_keylist_mode ctx m
-
--- | Are passphrase callbacks supported?
---
--- This functionality is known to be broken in some gpg versions,
--- see 'setPassphraseCb' for details.
-isPassphraseCbSupported :: Ctx -> Bool
-isPassphraseCbSupported ctx
-  | OpenPGP <- _protocol ctx =
-    case () of
-      _ | "2.0" `isPrefixOf` ver  -> False
-        | "1." `isPrefixOf` ver   -> False
-        | otherwise               -> True
-  | otherwise = True   -- give the user the benefit of a doubt
-  where
-    ver = _engineVersion ctx
 
 -- | A callback invoked when the engine requires a passphrase to
 -- proceed. The callback should return @Just@ the requested passphrase,
@@ -146,10 +121,10 @@ passphraseCb callback = do
 --
 -- See <http://lists.gnupg.org/pipermail/gnupg-devel/2013-February/027345.html>
 -- and the @gpgme-tool@ example included in the @gpgme@ tree for details.
-setPassphraseCallback :: Ctx                   -- ^ context
+setPassphraseCallback :: GPGme.Types.Ctx                   -- ^ context
                       -> Maybe PassphraseCb    -- ^ a callback, or Nothing to disable
                       -> IO ()
-setPassphraseCallback Ctx {_ctx=ctxPtr} callback = do
+setPassphraseCallback GPGme.Types.Ctx {_ctx=ctxPtr} callback = do
     ctx <- peek ctxPtr
     let mode = case callback of
                    Nothing -> c'GPGME_PINENTRY_MODE_DEFAULT
@@ -160,31 +135,3 @@ setPassphraseCallback Ctx {_ctx=ctxPtr} callback = do
     c'gpgme_set_pinentry_mode ctx mode >>= checkError "setPassphraseCallback"
     cb <- maybe (return nullFunPtr) passphraseCb callback
     c'gpgme_set_passphrase_cb ctx cb nullPtr
-
--- | A callback invoked when the engine uses a progress notification.
--- See the PROGRESS section of docs/DETAILS in gnupg repository.
-type ProgressCb =
-       String     -- ^ WHAT type of progress
-    -> Char       -- ^ CHAR is the character displayed with no --status-fd enabled, with the linefeed replaced by an 'X'
-    -> Integer    -- ^ CUR is the current progress
-    -> Integer    -- ^ TOTAL is the total possible progress
-    -> IO ()
-
--- | Construct a progress callback
-progressCb :: ProgressCb -> IO C'gpgme_progress_cb_t
-progressCb callback = do
-  let go _ what char cur total = do
-        what' <- peekCString what
-        let charChar = toEnum (fromEnum $ toInteger char)::Char
-        callback what' charChar (toInteger cur) (toInteger total)
-  mk'gpgme_progress_cb_t go
-
--- | Set the callback invoked when a progress feedback is available.
-setProgressCallback :: Ctx        -- ^ context
-                    -> Maybe ProgressCb
-                    -> IO ()
-setProgressCallback Ctx {_ctx=ctxPtr} callback = do
-  ctx <- peek ctxPtr
-  cb <- maybe (return nullFunPtr) progressCb callback
-  c'gpgme_set_progress_cb ctx cb nullPtr
-

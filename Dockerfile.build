@@ -1,8 +1,9 @@
 FROM public.ecr.aws/lambda/provided:al2023
 
-ARG USER_NAME=gpg-decrypt
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
+ARG APP_NAME=gpgdecrypt
+ARG USER_NAME=gpgdecrypt
+ARG UID=1000
+ARG GID=$UID
 
 ARG GHCUP_DWN_URL=https://downloads.haskell.org/~ghcup/x86_64-linux-ghcup
 ARG VERSION_GHC=9.6.6
@@ -38,8 +39,8 @@ RUN \
     chmod +x /usr/bin/ghcup
 
 # creating the workspace user
-RUN /usr/sbin/groupadd --gid ${USER_GID} ${USER_NAME} \
-    && /usr/sbin/useradd --uid ${USER_UID} --gid ${USER_GID} --no-log-init --create-home -m ${USER_NAME} -s /usr/bin/bash \
+RUN /usr/sbin/groupadd --gid ${GID} ${USER_NAME} \
+    && /usr/sbin/useradd --uid ${UID} --gid ${GID} --no-log-init --create-home -m ${USER_NAME} -s /usr/bin/bash \
     && /bin/echo ${USER_NAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USER_NAME} \
     && chmod 0440 /etc/sudoers.d/${USER_NAME}
 
@@ -59,9 +60,11 @@ RUN wget https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/DejaVu
 
 RUN curl -sfL https://direnv.net/install.sh | /usr/bin/bash
 
-USER ${USER_NAME}
+RUN mkdir -p /workspace/${APP_NAME} && chown ${UID}:${GID} /workspace/${APP_NAME}
 
 WORKDIR /home/${USER_NAME}
+
+USER ${USER_NAME}
 
 # installing GHC, cabal and stack (better not use stack though)
 RUN \
@@ -79,6 +82,7 @@ RUN echo 'eval "$(starship init bash)"' >> ~/.bashrc
 RUN echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
 
 
-SHELL ["/usr/bin/bash", "--login", "-i", "-c"]
+COPY project/. /workspace/$APP_NAME
+RUN sudo chown -R $UID:$GID /workspace/$APP_NAME
 
-CMD [ "sleep", "infinity" ]
+CMD []

@@ -10,15 +10,11 @@ import qualified Data.Aeson as A
 import qualified System.Log.FastLogger as LOG
 
 import qualified AWSEvent (RecordSet(..), Record(..))
-import qualified Helper
-import System.IO.Temp         (withSystemTempDirectory)
+import System.IO.Temp (withSystemTempDirectory)
 import qualified Data.ByteString as BS
 
 import System.FilePath ((</>))
-import GPGme.Ctx (withCtx, setPassphraseCallback)
-import GPGme.Types ( Protocol(OpenPGP), Ctx, Encrypted )
-import GPGme.Key (importKeyFromFile)
-import GPGme.Crypto (decrypt)
+
 import Control.Monad (forM)
 import qualified Data.ByteString.Lazy as BSL
 import System.Exit (die)
@@ -26,7 +22,12 @@ import qualified Data.Text.Encoding as T
 import Data.Aeson (Options(fieldLabelModifier))
 
 import System.Directory (makeAbsolute)
-import Helper (parseS3Uri)
+
+import qualified Helper (loadContentFromS3, writeToS3, parseS3Uri)
+
+import GPGme (setPassphraseCallback, withCtx, Ctx, Encrypted, Protocol (OpenPGP), importKeyFromFile, decrypt)
+
+
 data DecryptionResponse = DecryptionComplete T.Text | DecryptionError T.Text
     deriving (Show, Generic)
 instance A.ToJSON DecryptionResponse
@@ -88,9 +89,9 @@ processRecord :: DecryptionRequest -> IO DecryptionResponse
 processRecord request =  do
         loggerSet <- LOG.newStderrLoggerSet LOG.defaultBufSize
         let
-            mbInputPath = parseS3Uri $ s3InputPath request
-            mbKeyPath = parseS3Uri $ s3GpgKeyPath request
-            mbOutputPath = parseS3Uri $ s3OutputPath request
+            mbInputPath = Helper.parseS3Uri $ s3InputPath request
+            mbKeyPath = Helper.parseS3Uri $ s3GpgKeyPath request
+            mbOutputPath = Helper.parseS3Uri $ s3OutputPath request
         case (mbInputPath, mbKeyPath, mbOutputPath) of
             (Just (inputBucket, inputPath),
                 Just (keyBucket, keyPath),
@@ -132,4 +133,3 @@ handleDecrypt sqsEvent = do
 logMessage :: LOG.LoggerSet -> T.Text -> IO ()
 logMessage loggerSet msg = do
     LOG.pushLogStrLn loggerSet . LOG.toLogStr $ msg
-
