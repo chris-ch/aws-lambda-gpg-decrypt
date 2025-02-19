@@ -1,5 +1,7 @@
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
+RUN dnf --assumeyes swap gnupg2-minimal gnupg2-full
+
 # Set the working directory in the container
 WORKDIR /var/task
 

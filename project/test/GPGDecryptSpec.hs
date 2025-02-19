@@ -48,7 +48,7 @@ spec = do
       pp <- getEnv "IB_PGP_PASS_KEY"
       let request = DecryptionRequest
               { s3InputPath  = "s3://unit-tests-underline1-cascade6/ibrokers-positions-encrypted/F929289.Risk_Reporting_Export.20250205.20250205.xml.pgp"
-              , s3GpgKey     = "s3://unit-tests-underline1-cascade6/private-ibrokers-reporting.pgp"
+              , s3GpgKeyPath = "s3://unit-tests-underline1-cascade6/private-ibrokers-reporting.pgp"
               , passphrase   = T.pack pp
               , s3OutputPath = "s3://unit-tests-underline1-cascade6/ibrokers-positions-decrypted/F929289.Risk_Reporting_Export.20250205.20250205.xml"
         }

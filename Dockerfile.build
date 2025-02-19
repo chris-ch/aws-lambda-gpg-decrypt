@@ -66,13 +66,11 @@ WORKDIR /home/${USER_NAME}
 
 USER ${USER_NAME}
 
-# installing GHC, cabal and stack (better not use stack though)
+# installing GHC and cabal
 RUN \
     ghcup -v install ghc --force ${VERSION_GHC} && \
     ghcup -v install cabal --force ${VERSION_CABAL} && \
-    ghcup -v install stack --force ${VERSION_STACK} && \
-    ghcup set ghc ${VERSION_GHC} && \
-    ghcup install hls
+    ghcup set ghc ${VERSION_GHC}
 
 RUN /bin/echo -e "\nexport PATH=$PATH:/home/${USER_NAME}/.ghcup/bin:/home/${USER_NAME}/.local/bin/\n" >> /home/${USER_NAME}/.bashrc
 

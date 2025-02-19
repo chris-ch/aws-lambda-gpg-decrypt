@@ -3,5 +3,5 @@
 cabal update --project-dir=workspace
 cabal build --project-dir=workspace all
 
-echo Lamba binary location:
+echo Lambda binary location:
 cabal list-bin --project-dir=workspace gpg-decrypt-app
