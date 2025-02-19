@@ -22,6 +22,12 @@ docker build \
 docker run -it --user $(id -u):$(id -g) -v ./project:/home/$(whoami)/workspace:U --rm --entrypoint bash haskell-build-lambda -i -c "/home/$(whoami)/workspace/build.sh"
 ```
 
+(Note: for starting an interactive shell)
+
+```shell
+docker run -it --user $(id -u):$(id -g) -v ./project:/home/$(whoami)/workspace:U --rm --entrypoint bash haskell-build-lambda
+```
+
 ### Find the executable
 
 ```shell
@@ -38,12 +44,6 @@ cp "$BOOTSTRAP_PATH" ./bootstrap
 
 ```shell
 docker build --file Dockerfile.deploy --tag aws-gpg-lambda .
-```
-
-(Note: for starting an interactive shell)
-
-```shell
-docker run -it --user $(id -u):$(id -g) -v ./project:/home/$(whoami)/workspace:U --rm --entrypoint bash haskell-build-lambda
 ```
 
 ## Deploying the image to ECR
